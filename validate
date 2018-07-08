@@ -1,0 +1,80 @@
+#!/usr/bin/env node
+/*
+ * Validate domains.txt from notracking/hosts-blocklists
+ * https://github.com/notracking/hosts-blocklists
+ *
+ * Author: Dave Eddy <dave@daveeddy.com>
+ * Date: July 07, 2018
+ * License: MIT
+ */
+
+var assert = require('assert');
+var fs = require('fs');
+var readline = require('readline');
+
+// The IP addresses to allow
+var ALLOWED_IPS = [
+    '0.0.0.0',
+    '::'
+];
+
+// validate a line from domains.txt
+function validateDomainLine(line) {
+    // ex: "address=/hostname.domain.com/0.0.0.0"
+    var parts = line.split('/');
+    assert(parts.length === 3);
+    assert(parts[0] === 'address=');
+    assert(ALLOWED_IPS.indexOf(parts[2]) >= 0);
+}
+
+// validate a line from hostnames.txt
+function validateHostnameLine(line) {
+    // ex: "0.0.0.0 hostname.domain.com"
+    var parts = line.split(' ');
+    assert(parts.length === 2);
+    assert(ALLOWED_IPS.indexOf(parts[0]) >= 0);
+}
+
+var validators = {
+    hostnames: validateHostnameLine,
+    domains: validateDomainLine
+};
+
+var type = process.argv[2];
+var file = process.argv[3];
+
+var validate = validators[type];
+
+if (!file) {
+    console.error('Usage: validate <type> <file.txt>');
+    process.exit(1);
+}
+
+if (!validate) {
+    console.error('validate type "%s" not supported, must be one of %j',
+        type, Object.keys(validators));
+    process.exit(1);
+}
+
+// read file line-by-line
+var rl = readline.createInterface({
+    input: fs.createReadStream(file)
+});
+
+var i = 0;
+rl.on('line', function (line) {
+    i++;
+
+    // ignore comments and blank lines
+    if (line[0] === '#' || line.length === '') {
+        return;
+    }
+
+    // validate the line
+    try {
+        validate(line);
+    } catch (e) {
+        console.error('line %d invalid: "%s"', i, line);
+        throw e;
+    }
+});

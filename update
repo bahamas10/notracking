@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+#
+# Pull the latest tracking lists from
+# https://github.com/notracking/hosts-blocklists,
+# validate them, and then save them to the current directory
+#
+# Author: Dave Eddy <dave@daveeddy.com>
+# Date: July 07, 2018
+# License: MIT
+
+baseurl='https://raw.githubusercontent.com/notracking/hosts-blocklists/master'
+
+do-list() {
+	local name=$1
+	local url=$baseurl/$name.txt
+
+	echo "pulling latest $name list ($url)"
+	curl -sSo "$name.txt.tmp" "$url" || exit 1
+
+	echo "validating $name list ($name.txt.tmp)"
+	./validate "$name" "$name.txt.tmp" || exit 1
+
+	echo "installing $name list: $PWD/$name.txt"
+	mv "$name.txt.tmp" "$name.txt" || exit 1
+}
+
+date
+
+do-list domains
+do-list hostnames
+
+if [[ -n $1 ]]; then
+	echo "running: $*"
+	"$@"
+	echo "finished running - code: $?"
+fi
+
+echo "done.  took $SECONDS seconds"
